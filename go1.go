@@ -22,10 +22,20 @@ import (
 
 	"github.com/fullsailor/pkcs7"
 )
-
+type MetaData struct {
+	Name     string
+	FullPath string
+	Size     int64
+	ModTime  string
+	Hash     string
+}
+var err error
+var mode string
+var hash string
+var cert string
+var key string
+var source string
 func main() {
-	var err error
-	var mode, hash, cert, key, source string
 	flag.StringVar(&mode, "mode", ".", "Enter z to Zip, x to Extract, i for Info")
 	flag.StringVar(&source, "path", ".", "Enter path to files")
 	flag.StringVar(&hash, "hash", "", "Enter SHA-1 certificate")
@@ -227,13 +237,7 @@ func signing(bufbyte []byte, pkey crypto.PrivateKey, pcert *x509.Certificate) (s
 }
 
 
-type MetaData struct {
-	Name     string
-	FullPath string
-	Size     int64
-	ModTime  string
-	Hash     string
-}
+
 
 func ZipFiles(path string, zipWriter *zip.Writer, dirName string) error {
 
