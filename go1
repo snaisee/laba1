@@ -70,66 +70,53 @@ switch Mode {
 		}
 	case "z":
 
-func zipit(source, target string) error {
-	zipfile, err := os.Create(target)
-	if err != nil {
-		return err
-	}
-	defer zipfile.Close()
+newZipFile := new(bytes.Buffer)
+		ZipWriter := zip.NewWriter(newZipFile) //создается записыватель в zip
 
-	archive := zip.NewWriter(zipfile)
-	defer archive.Close()
-
-	info, err := os.Stat(source)
-	if err != nil {
-		return nil
-	}
-
-	var baseDir string
-	if info.IsDir() {
-		baseDir = filepath.Base(source)
-	}
-
-	filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		err := ZipFiles(Path, ZipWriter, "")
 		if err != nil {
-			return err
+			log.Printf(err.Error())
+			return
 		}
-
-		header, err := zip.FileInfoHeader(info)
+		err = ZipWriter.Close()
 		if err != nil {
-			return err
+			log.Printf(err.Error())
+			return
 		}
 
-		if baseDir != "" {
-			header.Name = filepath.Join(baseDir, strings.TrimPrefix(path, source))
-		}
+		fmt.Println("Files were zipped")
+		//p := Path + "\\"
+		for i, file := range List {
 
-		if info.IsDir() {
-			header.Name += "/"
-		} else {
-			header.Method = zip.Deflate
-		}
+			err := List[i].cngName(Path)
 
-		writer, err := archive.CreateHeader(header)
+			if err != nil {
+				log.Printf(err.Error())
+				return
+			} else {
+				fmt.Println(file.Name)
+			}
+		}
+		ZipMetaFile, err := CreateMeta(List, newZipFile)
 		if err != nil {
-			return err
+			log.Printf(err.Error())
+			return
 		}
 
-		if info.IsDir() {
-			return nil
-		}
+		EndZip := new(bytes.Buffer)
+		bs := make([]byte, 4)
+		binary.LittleEndian.PutUint32(bs, uint32(ZipMetaFile.Len()))
 
-		file, err := os.Open(path)
+		EndZip.Write(bs)
+		EndZip.Write(ZipMetaFile.Bytes())
+		EndZip.Write(newZipFile.Bytes())
+
+		err = SignZip(CertName, KeyName, Output, EndZip)
 		if err != nil {
-			return err
+			log.Printf(err.Error())
+			return
 		}
-		defer file.Close()
-		_, err = io.Copy(writer, file)
-		return err
-	})
 
-	return err
-	}
 
 
 
@@ -406,39 +393,120 @@ func Verify() (sign *pkcs7.PKCS7, err error) {
 	return sign, nil
  }
 func unzip(archive, target string) error {
-	reader, err := zip.OpenReader(archive)
+	sign, err := Verify()
 	if err != nil {
+		log.Printf("Sign was not verified")
+		return err
+	}
+	fmt.Println("Sign was verified")
+	data, err := ioutil.ReadFile(Output)
+	if err != nil {
+		log.Printf("unable to read szp")
+		return err
+	}
+	signer := sign.GetOnlySigner()
+	if Hash != "" {
+		if Hash == strings.ToUpper(fmt.Sprintf("%x", sha1.Sum(signer.Raw))) {
+			fmt.Println("Hashes are equal!")
+		} else {
+			fmt.Println("Hashes are not equal! Sing is broken")
+		}
+	} else {
+		fmt.Println("Hash of sign: " + strings.ToUpper(fmt.Sprintf("%x", sha1.Sum(signer.Raw))))
+	}
+	data = sign.Content
+	buf, mlen, err := ReadMeta(data)
+	dzip := data[mlen+4:] 
+
+	if err != nil {
+		log.Printf("Can not open meta")
+		return err
+	}
+	f := m.File[0]
+	buf := new(bytes.Buffer)
+	st, err := f.Open()
+	if err != nil {
+		log.Printf(err.Error())
+		return err
+	}
+	_, err = io.Copy(buf, st)
+	if err != nil {
+		log.Printf(err.Error())
+		return err
+	}*/
+
+	xmlMeta := new(meta)
+
+	err = xml.Unmarshal(buf.Bytes(), xmlMeta)
+	if err != nil {
+		log.Printf(err.Error())
 		return err
 	}
 
-	if err := os.MkdirAll(target, 0755); err != nil {
+	
+	r, err := zip.NewReader(bytes.NewReader(dzip), int64(len(dzip)))
+	if err != nil {
+		log.Printf("Can not open zip")
 		return err
 	}
+	
 
-	for _, file := range reader.File {
-		path := filepath.Join(target, file.Name)
-		if file.FileInfo().IsDir() {
-			os.MkdirAll(path, file.Mode())
-			continue
-		}
+	var fm os.FileMode
+	err = os.RemoveAll("extract")
+	if err != nil {
+		log.Printf("dir extract was made")
+	}
+	err = os.Mkdir("extract", fm) 
+	if err != nil {
+		log.Printf("can not create dir")
+		return err
+	}
+	p := "./extract"
+	i := 0 //счетчик для метаданных
+	for _, f := range r.File {
+		dirs, _ := filepath.Split(f.Name)
 
-		fileReader, err := file.Open()
-		if err != nil {
-			return err
-		}
-		defer fileReader.Close()
+		if f.ExternalAttrs == 0 { 
 
-		targetFile, err := os.OpenFile(path, os.o_wronly|os.o.create|os.o.trunk, file.Mode())
-		if err != nil {
-			return err
-		}
-		defer targetFile.Close()
+			err = os.Mkdir(filepath.Join(p, dirs), fm)
 
-		if _, err := io.Copy(targetFile, fileReader); err != nil {
-			return err
+			if err != nil {
+				log.Printf(err.Error())
+			}
+
+		} else {
+
+			rc, err := f.Open()
+			defer rc.Close()
+			if err != nil {
+				log.Printf(err.Error())
+			}
+
+			file, err := os.Create(filepath.Join(p, f.Name))
+			if err != nil {
+				log.Printf(err.Error())
+			}
+			defer file.Close()
+
+			_, err = io.Copy(file, rc)
+			if err != nil {
+				log.Printf(err.Error())
+			}
+
+			h := sha1.New()
+			fileHash, err := ioutil.ReadFile(filepath.Join(p, f.Name))
+			h.Write(fileHash)
+			hash := base64.URLEncoding.EncodeToString(h.Sum(nil))
+
+			if hash == xmlMeta.File[i].Hash {
+				fmt.Printf(f.Name + " hashes are equal\n")
+			} else {
+				fmt.Printf(f.Name + " hash is broken!\n")
+			}
+
+			i++
 		}
 	}
-
 	return nil
 }
 
