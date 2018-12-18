@@ -32,14 +32,14 @@ type MetaData struct {
 var err error
 var mode string
 var hash string
-var cert string
+var cerf string
 var key string
 var source string
 func main() {
 	flag.StringVar(&mode, "mode", ".", "Enter z to Zip, x to Extract, i for Info")
 	flag.StringVar(&source, "path", ".", "Enter path to files")
 	flag.StringVar(&hash, "hash", "", "Enter SHA-1 certificate")
-	flag.StringVar(&cert, "cert", "my.crt", "Enter path to certificate (~/my.crt)")
+	flag.StringVar(&cerf, "cerf", "my.crt", "Enter path to certificate (~/my.crt)")
 	flag.StringVar(&key, "key", "my.key", "Enter path to file with key ( ~/my.key)")
 
 	flag.Parse()
@@ -47,7 +47,7 @@ func main() {
 	switch mode {
 	case "z":
 	
-	func ifZ(source, key, cert string) (err error) {
+	func ifZ(source, key, cerf string) (err error) {
 	fmt.Println("Zip")
 	bufbyte, Jmeta, mN, err := ZipFiles(source)
 	if err != nil {
@@ -71,20 +71,20 @@ func main() {
 	archName := filepath.Base(a) + ".szp"
 
 	rLen := len(sizeByte) + len(Jmeta) + len(bufbyte)
-	bodySZP := make([]byte, 0, rLen)
-	bodySZP = append(bodySZP, sizeByte...)
-	bodySZP = append(bodySZP, Jmeta...)
-	bodySZP = append(bodySZP, bufbyte...)
+	SZP := make([]byte, 0, rLen)
+	SZP = append(SZP, sizeByte...)
+	SZP = append(SZP, Jmeta...)
+	SZP = append(SZP, bufbyte...)
 
 	pkey, err := KeyLoaiding(key)
 	if err != nil {
 		return
 	}
-	pcert, _, err := CertLoaiding(cert)
+	pcert, _, err := CertLoaiding(cerf)
 	if err != nil {
 		return
 	}
-	finalData, err := signing(bodySZP, pkey, pcert)
+	finalData, err := signing(SZP, pkey, pcert)
 	if err != nil {
 		return
 	}
@@ -200,9 +200,9 @@ func KeyLoaiding(key string) (pkey crypto.PrivateKey, err error) {
 	return
 }
 
-func CertLoaiding(cert string) (pcert *x509.Certificate, CtrB []byte, err error) {
+func CertLoaiding(cerf string) (pcert *x509.Certificate, CtrB []byte, err error) {
 	
-	CtrB, err = ioutil.ReadFile(cert)
+	CtrB, err = ioutil.ReadFile(cerf)
 	if err != nil {
 		return
 	}
@@ -361,7 +361,7 @@ func hashVerify(hash string, parseSign *pkcs7.PKCS7) error {
 		return fmt.Errorf("Error ")
 	}
 
-	fmt.Println("SHA-1 cert check confirmed")
+	fmt.Println("SHA-1 cerf check confirmed")
 	return nil
 }
 
