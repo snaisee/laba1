@@ -26,11 +26,11 @@ import (
 func main() {
 	var err error
 	var mode, hash, cert, key, source string
-	flag.StringVar(&mode, "mode", ".", "z(Zip), x(Extract), i(Info) — режимы работы утилиты")
-	flag.StringVar(&source, "path", ".", "Укажите путь к каталогу для чтения/записи файлов")
-	flag.StringVar(&hash, "hash", "", "Укажите SHA-1 отпечаток сертификата")
-	flag.StringVar(&cert, "cert", "my.crt", "Укажите путь до  сертификата (~/my.crt)")
-	flag.StringVar(&key, "key", "my.key", "Укажите путь для файла закрытого ключа ( ~/my.key)")
+	flag.StringVar(&mode, "mode", ".", "Enter z to Zip, x to Extract, i for Info")
+	flag.StringVar(&source, "path", ".", "Enter path to files")
+	flag.StringVar(&hash, "hash", "", "Enter SHA-1 certificate")
+	flag.StringVar(&cert, "cert", "my.crt", "Enter path to certificate (~/my.crt)")
+	flag.StringVar(&key, "key", "my.key", "Enter path to file with key ( ~/my.key)")
 
 	flag.Parse()
 
@@ -241,7 +241,7 @@ func ZipFiles(path string, zipWriter *zip.Writer, dirName string) error {
 	if err != nil {
 		return err
 	}
-	//L := new(sFile)
+	
 	for _, file := range files {
 		if file.IsDir() {
 			_, err := zipWriter.Create(filepath.Join(dirName, file.Name()) + "/")
@@ -345,7 +345,7 @@ func Extract(source, hash string) (szip []byte, err error) {
 func hashVerify(hash string, parseSign *pkcs7.PKCS7) error {
 	x509Cert := parseSign.GetOnlySigner()
 	if x509Cert == nil {
-		return fmt.Errorf("Error of sing parse")
+		return fmt.Errorf("Error ")
 	}
 
 	hCert := sha1.New()
@@ -354,7 +354,7 @@ func hashVerify(hash string, parseSign *pkcs7.PKCS7) error {
 	hString = hex.EncodeToString(hInBytes)
 
 	if hash != hString {
-		return fmt.Errorf("Error of SHA-1 cert")
+		return fmt.Errorf("Error ")
 	}
 
 	fmt.Println("SHA-1 cert check confirmed")
